@@ -1,18 +1,16 @@
 // The motivation behind this package is that the StructTag implementation shipped
 // with Go's standard library is very limited in detecting a malformed StructTag
 // and each time StructTag.Get(key) gets called, it results in the StructTag
-// being parsed again. Another problem is that the StructTag can not be
-// easily manipulated because it is basically a string.
-// This package provides a way to parse the StructTag into a Tag map, which
-// allows for fast lookups and easy manipulation of key value pairs within the
-// Tag.
+// being parsed again.
+// This package provides a way to parse the StructTag into a structtag.Map.
 //
-// 	// Example of struct using tags to append metadata to fields.
+// 	// Example of struct using StructTags to append metadata to fields.
 // 	type Server struct {
 //		Host string `json:"host" env:"SERVER_HOST" default:"localhost"`
 //		Port int    `json:"port" env:"SERVER_PORT" default:"3000"`
 //	}
-package tag
+//
+package structtag
 
 import (
 	"errors"
@@ -37,25 +35,25 @@ var (
 	ErrInvalidSeparator = errors.New("invalid separator, key value pairs should be separated by spaces")
 )
 
-// Tag is just a map of key value pairs.
-type Tag map[string]string
+// Map is just a map of key value pairs.
+type Map map[string]string
 
-// Merge multiple tags together into a single Tag.
+// Merge multiple Maps together into a single Tag.
 // In case of duplicate keys, the last encountered key will overwrite the existing.
-func Merge(tags ...Tag) Tag {
-	for _, t := range tags {
+func Merge(maps ...Map) Map {
+	for _, t := range maps {
 		for k, v := range t {
-			tags[0][k] = v
+			maps[0][k] = v
 		}
 	}
 
-	return tags[0]
+	return maps[0]
 }
 
 // StructTag converts the Tag into a StructTag.
-func (t Tag) StructTag() reflect.StructTag {
+func (m Map) StructTag() reflect.StructTag {
 	var s string
-	for k, v := range t {
+	for k, v := range m {
 		s += fmt.Sprintf(`%s:"%s" `, k, v)
 	}
 	return reflect.StructTag(strings.TrimSpace(s))
@@ -68,8 +66,8 @@ func (t Tag) StructTag() reflect.StructTag {
 // The parsing logic is a slightly modified version of the StructTag.Lookup
 // function from the reflect package included in the standard library.
 // https://github.com/golang/go/blob/0377f061687771eddfe8de78d6c40e17d6b21a39/src/reflect/type.go#L1132
-func Parse(st reflect.StructTag) (Tag, error) {
-	tag := Tag{}
+func Parse(st reflect.StructTag) (Map, error) {
+	tags := Map{}
 
 	for st != "" {
 		i := 0
@@ -85,21 +83,21 @@ func Parse(st reflect.StructTag) (Tag, error) {
 		i = 0
 		for i < len(st) && st[i] > ' ' && st[i] != ':' && st[i] != '"' && st[i] != 0x7f {
 			if st[i] == ',' {
-				return tag, ErrInvalidSeparator
+				return tags, ErrInvalidSeparator
 			}
 			i++
 		}
 
 		if i == 0 {
-			return tag, ErrInvalidKey
+			return tags, ErrInvalidKey
 		}
 
 		if i+1 >= len(st) || st[i] != ':' {
-			return tag, ErrInvalidSyntax
+			return tags, ErrInvalidSyntax
 		}
 
 		if st[i+1] != '"' {
-			return tag, ErrInvalidValue
+			return tags, ErrInvalidValue
 		}
 
 		key := string(st[:i])
@@ -114,7 +112,7 @@ func Parse(st reflect.StructTag) (Tag, error) {
 		}
 
 		if i >= len(st) {
-			return tag, ErrInvalidValue
+			return tags, ErrInvalidValue
 		}
 
 		qvalue := string(st[:i+1])
@@ -122,11 +120,11 @@ func Parse(st reflect.StructTag) (Tag, error) {
 
 		value, err := strconv.Unquote(qvalue)
 		if err != nil {
-			return tag, ErrInvalidValue
+			return tags, ErrInvalidValue
 		}
 
-		tag[key] = value
+		tags[key] = value
 	}
 
-	return tag, nil
+	return tags, nil
 }

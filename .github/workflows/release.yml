@@ -1,0 +1,20 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-rc.*'
+
+jobs:
+  static-analysis:
+    uses: quartercastle/github-action/.github/workflows/go-static-analysis.yml@main
+    with:
+      go: 1.13
+  release:
+    needs: static-analysis
+    uses: quartercastle/github-action/.github/workflows/release.yml@main
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+
+
